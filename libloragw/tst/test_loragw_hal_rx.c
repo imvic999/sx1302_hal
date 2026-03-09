@@ -114,6 +114,8 @@ int main(int argc, char **argv)
     struct lgw_conf_board_s boardconf;
     struct lgw_conf_rxrf_s rfconf;
     struct lgw_conf_rxif_s ifconf;
+    struct lgw_conf_ftime_s tsconf;
+    struct lgw_conf_demod_s demodconf;
 
     unsigned long nb_pkt_crc_ok = 0, nb_loop = 0, cnt_loop;
     int nb_pkt;
@@ -293,13 +295,25 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
+    tsconf.enable = false;
+    tsconf.mode = LGW_FTIME_MODE_ALL_SF;
+    if (lgw_ftime_setconf(&tsconf) != LGW_HAL_SUCCESS) {
+        printf("ERROR: Failed to configure fine timestamp\n");
+        return -1;
+    }
+
     /* set configuration for RF chains */
     memset( &rfconf, 0, sizeof rfconf);
     rfconf.enable = true;
     rfconf.freq_hz = fa;
     rfconf.type = radio_type;
     rfconf.rssi_offset = rssi_offset;
-    rfconf.tx_enable = false;
+    rfconf.rssi_tcomp.coeff_a = 0;
+    rfconf.rssi_tcomp.coeff_b = 0;
+    rfconf.rssi_tcomp.coeff_c = 20.41;
+    rfconf.rssi_tcomp.coeff_d = 2162.56;
+    rfconf.rssi_tcomp.coeff_e = 0;
+    rfconf.tx_enable = true;
     rfconf.single_input_mode = single_input_mode;
     if (lgw_rxrf_setconf(0, &rfconf) != LGW_HAL_SUCCESS) {
         printf("ERROR: failed to configure rxrf 0\n");
@@ -311,6 +325,11 @@ int main(int argc, char **argv)
     rfconf.freq_hz = fb;
     rfconf.type = radio_type;
     rfconf.rssi_offset = rssi_offset;
+    rfconf.rssi_tcomp.coeff_a = 0;
+    rfconf.rssi_tcomp.coeff_b = 0;
+    rfconf.rssi_tcomp.coeff_c = 20.41;
+    rfconf.rssi_tcomp.coeff_d = 2162.56;
+    rfconf.rssi_tcomp.coeff_e = 0;
     rfconf.tx_enable = false;
     rfconf.single_input_mode = single_input_mode;
     if (lgw_rxrf_setconf(1, &rfconf) != LGW_HAL_SUCCESS) {
@@ -318,10 +337,16 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
+    demodconf.multisf_datarate = 0xFF;
+    if (lgw_demod_setconf(&demodconf) != LGW_HAL_SUCCESS) {
+        printf("ERROR: invalid configuration for demodulation parameters\n");
+        return -1;
+    }
+
     /* set configuration for LoRa multi-SF channels (bandwidth cannot be set) */
     memset(&ifconf, 0, sizeof(ifconf));
     for (i = 0; i < 8; i++) {
-        ifconf.enable = true;
+        ifconf.enable = false;
         if (channel_mode == 0) {
             ifconf.rf_chain = channel_rfchain_mode0[i];
             ifconf.freq_hz = channel_if_mode0[i];
@@ -341,14 +366,35 @@ int main(int argc, char **argv)
 
     /* set configuration for LoRa Service channel */
     memset(&ifconf, 0, sizeof(ifconf));
+    ifconf.enable = false;
     ifconf.rf_chain = channel_rfchain_mode0[i];
     ifconf.freq_hz = channel_if_mode0[i];
     ifconf.datarate = DR_LORA_SF7;
     ifconf.bandwidth = BW_250KHZ;
+    ifconf.implicit_hdr = false;
+    ifconf.implicit_payload_length = 17;
+    ifconf.implicit_crc_en = false;
+    ifconf.implicit_coderate = CR_LORA_4_5;
     if (lgw_rxif_setconf(8, &ifconf) != LGW_HAL_SUCCESS) {
         printf("ERROR: failed to configure rxif for LoRa service channel\n");
         return EXIT_FAILURE;
     }
+
+    //Vic@20251208 --->
+    /* set configuration for FSK channel */
+    printf(">>> INFO: Configure FSK channel on IF chain 9\n");
+    memset(&ifconf, 0, sizeof ifconf); /* initialize configuration structure */
+    ifconf.enable = true;
+    ifconf.rf_chain = 1;
+    ifconf.freq_hz = -200000; /* -200 kHz */
+    ifconf.bandwidth = BW_250KHZ; /* 250 kHz */
+    ifconf.datarate = 40000; /* 50 kbps */
+
+    if (lgw_rxif_setconf(9, &ifconf) != LGW_HAL_SUCCESS) {
+        printf("ERROR: invalid configuration for FSK channel\n");
+        return -1;
+    }
+    //Vic@20251208 <---
 
     /* set the buffer size to hold received packets */
     struct lgw_pkt_rx_s rxpkt[max_rx_pkt];
