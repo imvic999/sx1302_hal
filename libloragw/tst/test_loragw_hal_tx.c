@@ -36,6 +36,14 @@ License: Revised BSD License, see LICENSE.TXT file include in the project
 #include "loragw_reg.h"
 #include "loragw_aux.h"
 
+/*********************************************************************
+ * Zinwell LED control macros, using gpio26 for RX and gpio4 for TX
+ *********************************************************************/
+#define RX_LED_ON  system("gpioset gpiochip0 26=1")
+#define RX_LED_OFF  system("gpioset gpiochip0 26=0")
+#define TX_LED_ON  system("gpioset gpiochip0 4=1")
+#define TX_LED_OFF  system("gpioset gpiochip0 4=0")
+
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE MACROS ------------------------------------------------------- */
 
@@ -573,7 +581,9 @@ int main(int argc, char **argv)
 
             pkt.payload[6] = (uint8_t)(i >> 0); /* FCnt */
             pkt.payload[7] = (uint8_t)(i >> 8); /* FCnt */
+            TX_LED_ON;
             x = lgw_send(&pkt);
+            TX_LED_OFF;
             if (x != 0) {
                 printf("ERROR: failed to send packet\n");
                 break;

@@ -36,6 +36,14 @@ License: Revised BSD License, see LICENSE.TXT file include in the project
 #include "loragw_reg.h"
 #include "loragw_aux.h"
 
+/*********************************************************************
+ * Zinwell LED control macros, using gpio26 for RX and gpio4 for TX
+ *********************************************************************/
+#define RX_LED_ON  system("gpioset gpiochip0 26=1")
+#define RX_LED_OFF  system("gpioset gpiochip0 26=0")
+#define TX_LED_ON  system("gpioset gpiochip0 4=1")
+#define TX_LED_OFF  system("gpioset gpiochip0 4=0")
+
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE MACROS ------------------------------------------------------- */
 
@@ -433,6 +441,7 @@ int main(int argc, char **argv)
                 wait_ms(10);
             } else {
                 for (i = 0; i < nb_pkt; i++) {
+                    RX_LED_ON;
                     if (rxpkt[i].status == STAT_CRC_OK) {
                         nb_pkt_crc_ok += 1;
                     }
@@ -453,6 +462,7 @@ int main(int argc, char **argv)
                         printf("%02X ", rxpkt[i].payload[j]);
                     }
                     printf("\n");
+                    RX_LED_OFF;
                 }
                 printf("Received %d packets (total:%lu)\n", nb_pkt, nb_pkt_crc_ok);
             }
